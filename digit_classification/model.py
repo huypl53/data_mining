@@ -13,7 +13,7 @@ import numpy as np
 import time
 import glob
 import sys
-
+from kNN import kNNClassifier
 if '__file__' in dir():
     CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
 else:
@@ -67,22 +67,21 @@ def log_cell(cells_list: [int], csv_path: str='./output.csv', mode:str='w'):
         for cells in cells_list:
             cntxt = ','.join(np.array(cells, dtype=np.str)) + '\n'
             f.write(cntxt)
-    
 
 
+def path2cells(fpath):
+    image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
+    image = 255 - image
+    try:
+        cells = calc_cells(image,thresh=10)
+        return cells
+    except Exception as e:
+        print(str(e))
+        print("AT: ", fpath)
 
+def simple_model():
 # %%
-if __name__ == "__main__":
-# %%
-    # def path2cells(fpath):
-    #     image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
-    #     image = 255 - image
-    #     try:
-    #         cells = calc_cells(image,thresh=10)
-    #         return cells
-    #     except Exception as e:
-    #         print(str(e))
-    #         print("AT: ", fpath)
+    # Update weights
     # 
     # cset = [str(i) for i in range(10)]
     # for c in cset[:]:
@@ -92,8 +91,11 @@ if __name__ == "__main__":
     # 
     # # %%
     #     update_weights('./weights', read_csv)
+
+
+    # for testing only
     # %%
-        weight_list = load_weights('./weights')
+    weight_list = load_weights('./weights')
     # %%
     n_test = 0
     n_true = 0
@@ -119,3 +121,45 @@ if __name__ == "__main__":
             if int(root_dir[-1].lower()) == int(res[0]):
                 n_true += 1
     print(f"Accuracy: {n_true/n_test} on {n_test} images")
+# %%
+
+def kNN_model():
+    # Init kNN's weights
+    X, Y = [], []
+    cset = [str(i) for i in range(10)]
+    for c in cset[:]:
+        image_paths = glob.glob('./train/{}/*.*'.format(c))
+        # cells_list = [ path2cells(p) for p in image_paths ]
+        for p in image_paths:
+            x = path2cells(p)
+            X.append(x)
+            Y.append(int(c))
+
+    X = np.array(X)
+    Y = np.array(Y)
+    # np.save('X.npy', X)
+    # np.save('Y.npy', Y)
+    model = kNNClassifier(1)
+    model.fit(X, Y)
+# %%
+
+    # Test kNN model
+    X_test = []
+    Y_test = []
+    for root_dir, sub_dir, files in os.walk('./test'):
+        for i, f in enumerate(files):
+            fpath = os.path.join(root_dir, f)
+            image = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
+            image = 255 -image
+            cells = calc_cells(image,thresh=10 )
+            X_test.append(cells)
+            Y_test.append(int(root_dir[-1].lower()))
+    X_test = np.array(X_test)
+    Y_test = np.array(Y_test)
+    pred = model.predict(X_test)
+    acc = np.sum( Y_test == pred ) / Y_test.shape[0]
+    print(f"Accuracy: {acc} on {n_test} images")
+
+if __name__ == "__main__":
+    # simple_model()
+    # kNN_model()
